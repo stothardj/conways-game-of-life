@@ -7,11 +7,10 @@
 #include <cmath>
 #include <ctime>
 #include <iostream>
+#include <map>
 #include <random>
 #include <set>
 #include <utility>
-
-#define PROJECT_NAME "gol"
 
 constexpr int WINDOW_WIDTH = 600;
 constexpr int WINDOW_HEIGHT = 400;
@@ -141,7 +140,7 @@ MyWindow::MyWindow(GameOfLife game_of_life) : m_game_of_life_vis(game_of_life) {
   m_game_of_life_vis.show();
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   auto app = Gtk::Application::create("org.gtkmm.examples.base");
 
   std::random_device rd;
