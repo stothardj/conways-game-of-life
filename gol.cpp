@@ -1,8 +1,10 @@
 #include <cairomm/context.h>
+#include <getopt.h>
 #include <glibmm/main.h>
 #include <gtkmm/application.h>
 #include <gtkmm/drawingarea.h>
 #include <gtkmm/window.h>
+#include <unistd.h>
 
 #include <cmath>
 #include <ctime>
@@ -10,10 +12,8 @@
 #include <map>
 #include <random>
 #include <set>
+#include <string>
 #include <utility>
-
-constexpr int WINDOW_WIDTH = 600;
-constexpr int WINDOW_HEIGHT = 400;
 
 using Cell = std::pair<int, int>;
 
@@ -66,8 +66,7 @@ void GameOfLife::step() {
     const bool alive = m_cells.find(cell) != m_cells.end();
     if (alive && (count == 2 || count == 3)) {
       new_cells.insert(cell);
-    }
-    if (!alive && count == 3) {
+    } else if (!alive && count == 3) {
       new_cells.insert(cell);
     }
   }
@@ -76,7 +75,7 @@ void GameOfLife::step() {
 
 class GameOfLifeVisual : public Gtk::DrawingArea {
  public:
-  GameOfLifeVisual(GameOfLife game_of_life);
+  GameOfLifeVisual(GameOfLife game_of_life, int width, int height);
   virtual ~GameOfLifeVisual() = default;
 
  protected:
@@ -84,18 +83,21 @@ class GameOfLifeVisual : public Gtk::DrawingArea {
   bool on_timeout();
 
   GameOfLife m_game_of_life;
+  int m_width;
+  int m_height;
 };
 
-GameOfLifeVisual::GameOfLifeVisual(GameOfLife game_of_life)
-    : m_game_of_life(game_of_life) {
+GameOfLifeVisual::GameOfLifeVisual(GameOfLife game_of_life, int width,
+                                   int height)
+    : m_game_of_life(game_of_life), m_width(width), m_height(height) {
   Glib::signal_timeout().connect(
       sigc::mem_fun(*this, &GameOfLifeVisual::on_timeout), 30);
 }
 
 bool GameOfLifeVisual::on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
   // Make each sequare 1x1
-  cr->scale(WINDOW_WIDTH / m_game_of_life.width(),
-            WINDOW_HEIGHT / m_game_of_life.height());
+  cr->scale(m_width / (double)m_game_of_life.width(),
+            m_height / (double)m_game_of_life.height());
 
   cr->save();
   cr->set_source_rgba(1.0, 1.0, 1.0, 0.7);
@@ -125,16 +127,21 @@ bool GameOfLifeVisual::on_timeout() {
 
 class MyWindow : public Gtk::Window {
  public:
-  MyWindow(GameOfLife game_of_life);
+  MyWindow(GameOfLife game_of_life, int width, int height);
   virtual ~MyWindow() = default;
 
  protected:
   GameOfLifeVisual m_game_of_life_vis;
+  int m_width;
+  int m_height;
 };
 
-MyWindow::MyWindow(GameOfLife game_of_life) : m_game_of_life_vis(game_of_life) {
+MyWindow::MyWindow(GameOfLife game_of_life, int width, int height)
+    : m_game_of_life_vis(game_of_life, width, height),
+      m_width(width),
+      m_height(height) {
   set_title("Conway's Game of Life");
-  set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT);
+  set_default_size(m_width, m_height);
 
   add(m_game_of_life_vis);
   m_game_of_life_vis.show();
@@ -147,8 +154,32 @@ int main(int argc, char** argv) {
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> distrib(0, 1);
 
-  const int game_width = 60;
-  const int game_height = 40;
+  int game_width = 60;
+  int game_height = 40;
+  int window_width = 600;
+  int window_height = 400;
+
+  int c;
+  std::string::size_type sz;
+  while ((c = getopt(argc, argv, "x:y:w:h:")) != -1) {
+    switch (c) {
+      case 'x':
+        game_width = std::stoi(optarg, &sz);
+        break;
+      case 'y':
+        game_height = std::stoi(optarg, &sz);
+        break;
+      case 'w':
+        window_width = std::stoi(optarg, &sz);
+        break;
+      case 'h':
+        window_height = std::stoi(optarg, &sz);
+        break;
+      default:
+        std::cerr << "Bad flag: " << optopt << std::endl;
+        return 1;
+    }
+  }
 
   GameOfLife game_of_life(game_width, game_height);
   for (int x = 0; x < game_width; x++) {
@@ -159,7 +190,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  MyWindow my_window(game_of_life);
+  MyWindow my_window(game_of_life, window_width, window_height);
 
   return app->run(my_window);
 }
